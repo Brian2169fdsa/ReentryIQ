@@ -1,0 +1,158 @@
+/* ReentryIQ — Frontend Design Spec v1.0 tokens. Vera (ManageAI) design language.
+   LIGHT content surfaces; navy reserved for the app shell/rail + landing hero.
+   No drop shadows (depth = borders + surface contrast). Radius 8px max. */
+
+:root {
+  /* ---- Brand ---- */
+  --po-navy:  #0F172A;      /* --ink */
+  --po-blue:  #4A90E2;      /* --brand */
+  --po-accent-fg: #FFFFFF;
+
+  /* ---- Blue ramp (charts/density) lightest -> darkest, per spec ---- */
+  --po-blue-100: #EAF2FC;
+  --po-blue-300: #A8C9F0;
+  --po-blue-500: #4A90E2;
+  --po-blue-700: #2E6CB8;
+  --po-blue-900: #1B4178;
+  /* graduated steps used by chart code (low value -> high value = lighter -> darker) */
+  --po-ramp-1: #A8C9F0;
+  --po-ramp-2: #7FB0E8;
+  --po-ramp-3: #4A90E2;
+  --po-ramp-4: #2E6CB8;
+  --po-ramp-5: #1B4178;
+  --po-ramp-faint: #E6EDF6;  /* out-of-scope / statewide bars on light */
+
+  /* ---- Surfaces (light) ---- */
+  --po-bg:        #F7F9FC;   /* --surface-2, page background */
+  --po-panel:     #FFFFFF;   /* cards */
+  --po-panel-2:   #F7F9FC;   /* card wells / inset */
+  --po-ink:       #0F172A;   /* navy shell base */
+  --po-elevated:  #FFFFFF;   /* popovers/menus */
+  --po-elevated-2:#F1F5FB;   /* hover wells */
+  --po-track:     #EDF2F8;   /* unfilled bar tracks */
+
+  /* ---- Hairlines ---- */
+  --po-line:        #E2E8F0;
+  --po-line-strong: #CBD5E1;
+
+  /* ---- Text ---- */
+  --po-text:    #0F172A;
+  --po-text-2:  #64748B;
+  --po-text-3:  #94A3B8;
+
+  /* ---- Blue emphasis (legacy --po-copper* names = brand blue) ---- */
+  --po-copper:        #4A90E2;   /* fills/CTAs */
+  --po-copper-bright: #2E6CB8;   /* accent TEXT on light (legible) */
+  --po-copper-dim:    #2E6CB8;   /* hover/press darker */
+  --po-copper-wash:   rgba(74,144,226,0.10);
+  --po-copper-line:   rgba(74,144,226,0.28);
+
+  /* ---- Semantic ---- */
+  --po-sage:        #2E8B6E;     /* --success */
+  --po-sage-bright: #2E8B6E;
+  --po-sage-wash:   rgba(46,139,110,0.12);
+  --po-sage-line:   rgba(46,139,110,0.30);
+  --po-amber:       #C9822E;     /* --warn */
+  --po-amber-wash:  rgba(201,130,46,0.14);
+  --po-red:         #C0392B;     /* --danger */
+  --po-red-wash:    rgba(192,57,43,0.12);
+
+  /* ---- Type ---- */
+  --po-display: 'Montserrat', system-ui, sans-serif;
+  --po-body:    'Inter', system-ui, sans-serif;
+  --po-mono:    'IBM Plex Mono', ui-monospace, monospace;
+
+  --po-r-sm: 6px;
+  --po-r:    8px;
+}
+
+/* Navy shell sub-theme — applied to the topbar + rail so they render light-on-navy
+   while the content area uses the light :root tokens. */
+.po-shell-dark {
+  --po-panel:     #0F172A;
+  --po-panel-2:   #1B2740;
+  --po-elevated:  #1B2740;
+  --po-elevated-2:#22304C;
+  --po-line:        rgba(255,255,255,0.10);
+  --po-line-strong: rgba(255,255,255,0.18);
+  --po-text:    #E8EDF4;
+  --po-text-2:  #94A3B8;
+  --po-text-3:  #64748B;
+  --po-bg:      #0F172A;
+  --po-track:   rgba(255,255,255,0.12);
+  --po-copper-bright: #6BA7EC;  /* accent text reads brighter on navy */
+  --po-copper-wash:   rgba(74,144,226,0.18);
+  --po-copper-line:   rgba(74,144,226,0.42);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--po-bg);
+  color: var(--po-text);
+  font-family: var(--po-body);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* ---- Type helpers ---- */
+.po-display { font-family: var(--po-display); font-weight: 600; letter-spacing: -0.02em; }
+.po-mono    { font-family: var(--po-mono); font-feature-settings: "tnum" 1; }
+.po-label {
+  font-family: var(--po-body);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--po-text-3);
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: rgba(100,116,139,0.30); border-radius: 8px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: rgba(100,116,139,0.45); background-clip: content-box; }
+::-webkit-scrollbar-track { background: transparent; }
+.po-shell-dark ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); background-clip: content-box; }
+
+::selection { background: var(--po-copper-wash); }
+
+button { font-family: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--po-blue); outline-offset: 2px; }
+
+/* ---- Hover states (className-driven; !important to beat inline base styles) ---- */
+.po-hov-nav:hover    { background: var(--po-elevated-2) !important; color: var(--po-text) !important; }
+.po-hov-soft:hover   { background: var(--po-elevated-2) !important; }
+.po-hov-row:hover    { background: var(--po-elevated-2) !important; color: var(--po-text) !important; }
+.po-hov-trow:hover   { background: var(--po-panel-2) !important; }
+.po-hov-menu:hover   { background: var(--po-panel-2) !important; color: var(--po-text) !important; }
+.po-hov-copper:hover { background: var(--po-copper-dim) !important; }
+.po-hov-chip:hover   { border-color: var(--po-line-strong) !important; color: var(--po-text) !important; }
+.po-hov-ghost:hover  { background: var(--po-elevated-2) !important; color: var(--po-text) !important; }
+.po-hov-lift { transition: background .15s ease, border-color .15s ease; }
+.po-hov-card:hover   { border-color: var(--po-copper-line) !important; }
+
+/* fadeUp entrance (visible end-state is the base; animation only plays when it runs) */
+@keyframes po-fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes po-drawerIn {
+  from { opacity: 0; transform: translateX(28px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes po-barStagger {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+/* Landing hero Horizon bars: resting state is full height + opaque (inline `height`),
+   always visible under paused/throttled timelines, screenshot/PDF export, or reduced motion.
+   No entrance animation gates the bars — robustness over a stagger flourish. */
+.po-hero-bar { width: 100%; border-radius: 2px 2px 0 0; }
+
+/* AI assistant typing dots */
+.po-dots { display: inline-flex; gap: 4px; align-items: center; }
+.po-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--po-text-3); display: inline-block; animation: po-dot 1s infinite ease-in-out; }
+.po-dots i:nth-child(2) { animation-delay: .15s; }
+.po-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes po-dot { 0%, 60%, 100% { opacity: .3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }

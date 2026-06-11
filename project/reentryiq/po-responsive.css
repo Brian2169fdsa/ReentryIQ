@@ -1,0 +1,56 @@
+/* po-responsive.css — mobile/tablet breakpoints for ReentryIQ.
+   Targets className hooks on inline-styled React containers; !important overrides
+   the inline grid/flex base styles. Load AFTER po-tokens.css. */
+
+/* hover affordance for footer links (kept here so po-site stays markup-only) */
+.site-foot-link:hover { color: var(--po-blue) !important; }
+
+/* ============ Marketing (Landing + Pricing) ============ */
+@media (max-width: 960px) {
+  .l-hero       { grid-template-columns: 1fr !important; gap: 32px !important; }
+  .l-pgrid      { grid-template-columns: 1fr !important; }
+  .l-cards3     { grid-template-columns: 1fr 1fr !important; }
+  .site-foot-grid { grid-template-columns: 1.4fr 1fr 1fr !important; row-gap: 32px !important; }
+}
+@media (max-width: 680px) {
+  .l-stats      { grid-template-columns: 1fr 1fr !important; }
+  .l-cards3     { grid-template-columns: 1fr !important; }
+  .site-foot-grid { grid-template-columns: 1fr 1fr !important; }
+  .l-hero-title { font-size: 32px !important; }
+  .l-nav-hide   { display: none !important; }
+  .site-cta     { padding: 26px 22px !important; }
+  .pricing-title { font-size: 28px !important; }
+  .site-nav-triggers { display: none !important; }
+}
+@media (max-width: 440px) {
+  .l-stats      { grid-template-columns: 1fr !important; }
+  .site-foot-grid { grid-template-columns: 1fr !important; }
+}
+
+/* Pricing comparison table: scroll horizontally rather than crush on small screens */
+@media (max-width: 860px) {
+  .pricing-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -16px; padding: 20px 16px 0; }
+  .pricing-table-inner { min-width: 720px; }
+}
+
+/* ============ Dashboard (3-column app shell) ============ */
+@media (max-width: 1200px) {
+  .ov-right { display: none !important; }
+  .ov-kpis  { grid-template-columns: 1fr 1fr !important; }
+}
+@media (max-width: 940px) {
+  .ov-left      { display: none !important; }
+  .ov-brandcell { width: auto !important; border-right: none !important; padding-right: 8px !important; }
+  .ov-charts    { flex-direction: column !important; }
+  .ov-saved     { grid-template-columns: 1fr !important; }
+  .ov-center    { padding: 18px 16px 24px !important; }
+}
+@media (max-width: 720px) {
+  .ov-search    { display: none !important; }
+  .ov-userlabel { display: none !important; }
+  .ov-pagehead  { flex-direction: column !important; align-items: stretch !important; }
+}
+@media (max-width: 520px) {
+  .ov-kpis { grid-template-columns: 1fr !important; }
+  .ov-callout { flex-direction: column !important; align-items: flex-start !important; }
+}
