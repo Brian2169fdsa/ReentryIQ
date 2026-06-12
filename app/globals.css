@@ -53,6 +53,15 @@
   --po-sage-bright: #2E8B6E;
   --po-sage-wash:   rgba(46, 139, 110, 0.12);
   --po-sage-line:   rgba(46, 139, 110, 0.30);
+  --po-warn:        #E0A33A;
+  --po-warn-wash:   rgba(224, 163, 58, 0.12);
+  --po-warn-line:   rgba(224, 163, 58, 0.40);
+  --po-danger:      #C25E5E;
+  --po-danger-wash: rgba(194, 94, 94, 0.10);
+  --po-danger-line: rgba(194, 94, 94, 0.35);
+  --po-slate:       #64748B;
+  --po-slate-wash:  rgba(100, 116, 139, 0.12);
+  --po-slate-line:  rgba(100, 116, 139, 0.32);
 
   /* Typography */
   --po-r-sm: 6px;
@@ -152,6 +161,14 @@ html, body {
 @media (max-width: 860px) {
   .dash-rail { display: none !important; }
   .dash-stats { grid-template-columns: 1fr 1fr !important; }
+}
+
+@media (max-width: 1280px) {
+  .dash-airail { display: none !important; }
+}
+
+@media (max-width: 960px) {
+  .dash-sidebar { display: none !important; }
 }
 
 @media (max-width: 440px) {

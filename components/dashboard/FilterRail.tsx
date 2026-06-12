@@ -11,17 +11,17 @@ import {
   applyFilters,
 } from './types'
 
-/* Navy palette (light-on-navy chrome) */
+/* Light palette — rail matches the light app shell. */
 const N = {
-  text: '#E2E8F0',
-  text2: '#94A3B8',
-  text3: '#64748B',
-  line: 'rgba(226,232,240,0.12)',
-  inputBg: 'rgba(255,255,255,0.06)',
-  inputBorder: 'rgba(226,232,240,0.16)',
-  chipOnBg: 'rgba(74,144,226,0.22)',
-  chipOnBorder: 'rgba(74,144,226,0.45)',
-  chipOnText: '#A8C9F0',
+  text: 'var(--po-text)',
+  text2: 'var(--po-text-2)',
+  text3: 'var(--po-text-3)',
+  line: 'var(--po-line)',
+  inputBg: 'var(--po-bg)',
+  inputBorder: 'var(--po-line-strong)',
+  chipOnBg: 'var(--po-copper-wash)',
+  chipOnBorder: 'var(--po-copper-line)',
+  chipOnText: 'var(--po-blue-700)',
 }
 
 function RailLabel({ text }: { text: string }) {
@@ -88,7 +88,7 @@ function NavySelect({
           <div
             style={{
               position: 'absolute', top: 'calc(100% + 6px)', left: 0, right: 0, zIndex: 31,
-              background: '#1B2740', border: `1px solid ${N.inputBorder}`,
+              background: 'var(--po-panel)', border: `1px solid ${N.inputBorder}`,
               borderRadius: 'var(--po-r)', padding: 5, maxHeight: 240, overflowY: 'auto',
             }}
           >
@@ -101,7 +101,7 @@ function NavySelect({
                   style={{
                     width: '100%', textAlign: 'left', padding: '8px 10px', borderRadius: 'var(--po-r-sm)',
                     border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: 13,
-                    background: active ? 'rgba(255,255,255,0.08)' : 'transparent',
+                    background: active ? 'var(--po-elevated-2)' : 'transparent',
                     color: active ? N.text : N.text2,
                   }}
                 >
@@ -149,7 +149,7 @@ export function FilterRail({
       className="dash-rail"
       style={{
         width: 264, flexShrink: 0, borderRight: `1px solid ${N.line}`,
-        background: 'var(--po-navy)', display: 'flex', flexDirection: 'column',
+        background: 'var(--po-panel)', display: 'flex', flexDirection: 'column',
       }}
     >
       <div style={{ flex: 1, overflowY: 'auto', padding: '18px 16px 28px' }}>
@@ -198,7 +198,7 @@ export function FilterRail({
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}
                   >
-                    {on && <Icon name="check" size={11} stroke="#fff" strokeWidth={2.6} />}
+                    {on && <Icon name="check" size={11} stroke="var(--po-accent-fg)" strokeWidth={2.6} />}
                   </span>
                   <span style={{ flex: 1, textAlign: 'left' }}>{c}</span>
                   <span className="po-mono" style={{ fontSize: 11.5, color: N.text3 }}>{byCounty[c] || 0}</span>

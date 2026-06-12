@@ -4,30 +4,51 @@ import { useEffect, useRef } from 'react'
 import { useChat } from 'ai/react'
 import { Icon } from '@/components/ui/Icon'
 import { ReleasesDash, CountySummaryDash, DailyVolumeDash } from '@/components/agent/Dashboards'
+import { QueryResultCard } from '@/components/dashboard/AssistantRail'
 
 const SUGGESTIONS = [
-  'Releases by county, next 60 days',
+  'Releases into Maricopa county next 6 months',
   'High-propensity releases into Maricopa this month',
   'Weekly release volume for the next 90 days',
   'Who is releasing from ASPC-Lewis next week?',
   'Pima vs Pinal release trend',
 ]
 
+function QueryReleasesDash({ result }: { result: never }) {
+  return <QueryResultCard result={result} onViewMatches={() => { window.location.href = '/dashboard' }} />
+}
+
+function RevealDash({ result }: { result: never }) {
+  const r = (result as { record?: { name: string; adc_number: string; complex: string | null; prison_release_date: string | null } }).record
+  if (!r) return null
+  return (
+    <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+      <b style={{ color: 'var(--po-text)' }}>{r.name}</b>
+      <span className="po-mono" style={{ color: 'var(--po-text-3)' }}> · ADC {r.adc_number}</span>
+      <div style={{ color: 'var(--po-text-2)' }}>{r.complex} · releases {r.prison_release_date ?? '—'}</div>
+    </div>
+  )
+}
+
 const DASH_BY_TOOL: Record<string, React.ComponentType<{ result: never }>> = {
   searchReleases: ReleasesDash as never,
   getCountySummary: CountySummaryDash as never,
   getDailyVolume: DailyVolumeDash as never,
+  query_releases: QueryReleasesDash as never,
+  reveal_record: RevealDash as never,
 }
 
 const TOOL_LABEL: Record<string, string> = {
   searchReleases: 'search_releases',
   getCountySummary: 'county_summary',
   getDailyVolume: 'daily_volume',
+  query_releases: 'query_releases',
+  reveal_record: 'reveal_record',
 }
 
 export function AgentChat() {
   const { messages, input, handleInputChange, handleSubmit, append, isLoading } = useChat({
-    api: '/api/agent',
+    api: '/api/chat',
   })
   const endRef = useRef<HTMLDivElement>(null)
 
