@@ -62,47 +62,23 @@ export const supabaseConfigured = () =>
   !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 /**
- * Fetch all upcoming releases. Client-safe (anon key + RLS).
- * Falls back to demo data if Supabase is unset, errors, or has no rows.
+ * Fetch all upcoming releases THROUGH THE SERVER-SIDE DATA GATE
+ * (/api/data/releases → lib/data-gate.ts). The client never decides sample
+ * vs real and never queries release tables directly. source: 'live' only when
+ * the caller's org is entitled (active/comped + attested); everything else is
+ * the sample dataset, which the UI labels with the "Sample data" pill.
  */
 export async function fetchReleases(): Promise<{ rows: Release[]; source: DataSource }> {
-  if (supabaseConfigured()) {
-    try {
-      const { createBrowserClient } = await import('@supabase/ssr')
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
-      const { data, error } = await supabase
-        .from('releases')
-        .select('*')
-        .gte('release_date', new Date().toISOString().slice(0, 10))
-        .order('release_date', { ascending: true })
-        .limit(5000)
-      if (!error && data && data.length > 0) {
-        const rows: Release[] = data.map((d: Record<string, unknown>) => ({
-          id: String(d.id),
-          doc_number: String(d.doc_number ?? ''),
-          first_name: String(d.first_name ?? ''),
-          last_name: String(d.last_name ?? ''),
-          name: `${d.first_name ?? ''} ${d.last_name ?? ''}`.trim(),
-          county: String(d.county ?? ''),
-          facility: String(d.facility ?? ''),
-          unit: String(d.unit ?? ''),
-          release_date: String(d.release_date ?? ''),
-          days_out: daysFromToday(String(d.release_date ?? '')),
-          offense_class: String(d.offense_class ?? ''),
-          custody: String(d.custody ?? ''),
-          supervision: String(d.supervision ?? ''),
-          sentence_years: Number(d.sentence_years ?? 0),
-          score: Number(d.match_score ?? d.score ?? 0),
-          age: Number(d.age ?? 0),
-        }))
-        return { rows, source: 'live' }
+  try {
+    const res = await fetch('/api/data/releases', { cache: 'no-store' })
+    if (res.ok) {
+      const d = await res.json()
+      if (Array.isArray(d.rows) && d.rows.length) {
+        return { rows: d.rows as Release[], source: d.mode === 'real' ? 'live' : 'demo' }
       }
-    } catch {
-      // fall through to demo
     }
+  } catch {
+    // fall through to local sample
   }
   return { rows: RECORDS.map(fromDemo), source: 'demo' }
 }

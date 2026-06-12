@@ -2,6 +2,23 @@
 
 Autonomous decisions made while building, newest first.
 
+## 2026-06-12 — Data gate (sample vs real)
+
+- lib/data-gate.ts replaces lib/scope.ts as THE chokepoint (scope.ts retained
+  but no longer imported by gated paths). Real data requires active|comped
+  status + fcra_ack attestation + in-scope county; everything else is sample.
+- fetchReleases() now calls /api/data/releases — no client-side release-table
+  access remains anywhere; the "Sample data" pill is driven by the server's
+  mode, not a UI flag.
+- meterReveal() persists to record_reveals (existing PK dedupe, reused) +
+  usage_events; metering failures never block reads (daily rollup reconciles).
+- Sample-mode record lookups use demoRecord() directly — a sample caller
+  probing a real ADC gets 404, not data.
+- Migration 0005: signup trigger creates org (free/trialing = sample) + owner
+  membership + attestation from signup metadata; Stripe webhook's status flip
+  is the entitlement switch. Seeded Sanctuary Recovery attestation as the
+  entitled test org.
+
 ## 2026-06-12 — Platform admin + Stripe billing
 
 - Stripe SDK pinned to v17.7.0: the spec's metered rollup uses

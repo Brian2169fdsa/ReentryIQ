@@ -3,7 +3,7 @@
 // scoped through lib/scope.ts. Reads the `records` view when present, then
 // the `releases` table, then the demo dataset.
 
-import { getScope, scopeCounties, type ScopeContext } from '@/lib/scope'
+import { resolveAccess, clampCounties, type Access } from '@/lib/data-gate'
 import { RECORDS } from '@/lib/releases'
 
 export interface QueryParams {
@@ -50,12 +50,13 @@ function isoPlusDays(days: number) {
 const configured = () =>
   !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-async function loadRows(scope: ScopeContext, p: QueryParams): Promise<{ rows: QueryRow[]; source: 'live' | 'demo' }> {
+async function loadRows(access: Access, p: QueryParams): Promise<{ rows: QueryRow[]; source: 'live' | 'demo' }> {
   const from = isoPlusDays(Math.max(0, p.window_days_from ?? 0))
   const to = isoPlusDays(Math.min(730, p.window_days_to ?? 180))
-  const counties = scopeCounties(scope, p.county ?? null)
+  const counties = clampCounties(access, p.county ?? null)
 
-  if (configured()) {
+  // SAMPLE-mode orgs never touch live tables — the gate decides, not the model.
+  if (access.mode === 'real' && configured()) {
     try {
       const { createClient } = await import('@/lib/supabase/server')
       const supabase = createClient()
@@ -113,13 +114,18 @@ async function loadRows(scope: ScopeContext, p: QueryParams): Promise<{ rows: Qu
 }
 
 export async function runQueryReleases(p: QueryParams): Promise<QueryResult> {
-  const scope = getScope()
-  const { rows, source } = await loadRows(scope, p)
+  const access = await resolveAccess()
+  const { rows, source } = await loadRows(access, p)
   const from = isoPlusDays(Math.max(0, p.window_days_from ?? 0))
   const to = isoPlusDays(Math.min(730, p.window_days_to ?? 180))
   const base = {
     window: { from, to },
-    scope_note: scope.counties ? `Scoped to ${scope.counties.join(', ')}` : 'Statewide scope',
+    scope_note:
+      access.mode === 'sample'
+        ? 'Sample data — org not yet entitled to live records'
+        : access.counties
+          ? `Scoped to ${access.counties.join(', ')}`
+          : 'Statewide scope',
     source,
   }
 

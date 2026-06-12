@@ -2,8 +2,8 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { streamText, tool } from 'ai'
 import { z } from 'zod'
 import { runQueryReleases } from '@/lib/release-query'
-import { fetchInmateRecord } from '@/lib/inmate-record'
-import { getScope, recordReveal } from '@/lib/scope'
+import { fetchInmateRecord, demoRecord } from '@/lib/inmate-record'
+import { resolveAccess, meterReveal } from '@/lib/data-gate'
 
 export const maxDuration = 30
 
@@ -64,11 +64,15 @@ export async function POST(req: Request) {
           adc_number: z.string().describe('The ADC number, e.g. "380700"'),
         }),
         execute: async ({ adc_number }) => {
-          const scope = getScope()
-          const { allowed } = await recordReveal(scope, adc_number)
-          if (!allowed) return { error: 'Record view limit reached for this billing period.' }
-          const { record, source } = await fetchInmateRecord(adc_number)
+          const access = await resolveAccess()
+          // Sample-mode orgs can only ever reveal synthetic records.
+          const lookup =
+            access.mode === 'real'
+              ? await fetchInmateRecord(adc_number)
+              : { record: demoRecord(adc_number), source: 'demo' as const }
+          const { record, source } = lookup
           if (!record) return { error: `No record found for ADC ${adc_number}.` }
+          await meterReveal(access, adc_number)
           // Summary fields only in chat; the panel shows the full grouped record.
           return {
             source,

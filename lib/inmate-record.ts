@@ -122,7 +122,8 @@ export async function fetchInmateRecord(
 
 /* ── Demo fallback ─────────────────────────────────────────────── */
 
-function demoRecord(adc: string): InmateRecord | null {
+/** Synthetic-only path — used directly by sample-mode callers (data gate). */
+export function demoRecord(adc: string): InmateRecord | null {
   if (adc === '380700') return VALLENE_SMITH
 
   const r = RECORDS.find(x => x.docNumber === adc)
