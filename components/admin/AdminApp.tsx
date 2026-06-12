@@ -2,125 +2,80 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
-import { fetchReleases, type Release } from '@/lib/data-source'
-import { ADMIN_EMAILS } from '@/lib/admin'
+import {
+  Pill, StatCard, Section, UsageBar, RampBar, usageColor,
+  statusTone, planTone, fmtMoney, fmtDate,
+} from './ui'
+import { OrgDetail } from './OrgDetail'
 
-/* ── Types ─────────────────────────────────────────────────────── */
+/* ── Types (mirror API contracts) ──────────────────────────────── */
 
-interface AdminUser {
+interface OrgRow {
   id: string
-  email: string
-  org_name: string | null
-  org_type: string | null
-  role: 'admin' | 'member'
-  status: 'active' | 'suspended'
-  attested_permitted_use: boolean
-  attested_at: string | null
+  name: string
+  plan: string
+  status: string
+  mrr_cents: number
+  reveals: number
+  included: number
+  usage_pct: number
+  members: number
   created_at: string
 }
 
-const DEMO_USERS: AdminUser[] = [
-  { id: 'u1', email: ADMIN_EMAILS[0], org_name: 'Manage AI', org_type: 'Other', role: 'admin', status: 'active', attested_permitted_use: true, attested_at: '2026-06-12T16:00:00Z', created_at: '2026-06-12T16:00:00Z' },
-  { id: 'u2', email: 'team@sanctuaryrecovery.org', org_name: 'Sanctuary Recovery', org_type: 'Treatment center', role: 'member', status: 'active', attested_permitted_use: true, attested_at: '2026-06-11T19:21:00Z', created_at: '2026-06-11T19:21:00Z' },
-  { id: 'u3', email: 'intake@desertpathways.org', org_name: 'Desert Pathways', org_type: 'Reentry program', role: 'member', status: 'active', attested_permitted_use: true, attested_at: '2026-06-10T22:05:00Z', created_at: '2026-06-10T22:05:00Z' },
-  { id: 'u4', email: 'ops@newhorizonliving.com', org_name: 'New Horizon Living', org_type: 'Sober living', role: 'member', status: 'suspended', attested_permitted_use: false, attested_at: null, created_at: '2026-06-09T15:44:00Z' },
-]
-
-/* ── Small pieces ──────────────────────────────────────────────── */
-
-function Pill({ children, tone }: { children: React.ReactNode; tone: 'sage' | 'blue' | 'gray' | 'red' }) {
-  const map = {
-    sage: { bg: 'var(--po-sage-wash)', fg: 'var(--po-sage)', line: 'var(--po-sage-line)' },
-    blue: { bg: 'var(--po-copper-wash)', fg: 'var(--po-blue-700)', line: 'var(--po-copper-line)' },
-    gray: { bg: 'var(--po-track)', fg: 'var(--po-text-2)', line: 'var(--po-line)' },
-    red: { bg: 'rgba(194,94,94,0.10)', fg: '#A14848', line: 'rgba(194,94,94,0.32)' },
-  }[tone]
-  return (
-    <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, background: map.bg, color: map.fg, border: `1px solid ${map.line}`, whiteSpace: 'nowrap' }}>
-      {children}
-    </span>
-  )
+interface BillingData {
+  total_mrr_cents: number
+  by_tier: { plan: string; subs: number; mrr_cents: number }[]
+  past_due: { id: string; name: string; plan: string }[]
+  past_due_count: number
+  overage_revenue_cents: number
+  period: string
+  source: 'live' | 'demo'
 }
 
-function StatCard({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: string }) {
-  return (
-    <div className="card" style={{ padding: '14px 16px', flex: 1, minWidth: 150 }}>
-      <div className="po-label" style={{ fontSize: 10, marginBottom: 6 }}>{label}</div>
-      <div className="po-display" style={{ fontSize: 24, fontWeight: 700, color: accent ?? 'var(--po-text)', lineHeight: 1.1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11.5, color: 'var(--po-text-3)', marginTop: 4 }}>{sub}</div>}
-    </div>
-  )
+interface UsageData {
+  period: string
+  periods: string[]
+  top_orgs: { id: string; name: string; reveals: number }[]
+  trend: { period: string; total: number }[]
+  by_org_trend: { id: string; name: string; points: number[] }[]
+  source: 'live' | 'demo'
 }
 
-function fmtDateTime(iso: string | null) {
-  if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+interface PipelineData {
+  scraper: 'operational' | 'unreachable'
+  last_sync: string | null
+  inmates: number | null
+  detail: string
+  source: 'live' | 'demo'
 }
 
-/* ── Root ──────────────────────────────────────────────────────── */
+/* ── Shell ──────────────────────────────────────────────────────── */
 
 const TABS = [
-  { id: 'overview', label: 'Overview', icon: 'gauge' },
-  { id: 'users', label: 'Users', icon: 'users' },
-  { id: 'data', label: 'Data', icon: 'layers' },
-]
+  { id: 'orgs', label: 'Orgs', icon: 'building' },
+  { id: 'billing', label: 'Billing', icon: 'gauge' },
+  { id: 'usage', label: 'Usage', icon: 'layers' },
+  { id: 'pipeline', label: 'Pipeline', icon: 'plug' },
+] as const
 
 export function AdminApp() {
-  const [tab, setTab] = useState('overview')
-  const [users, setUsers] = useState<AdminUser[]>(DEMO_USERS)
-  const [usersSource, setUsersSource] = useState<'live' | 'demo'>('demo')
-  const [releases, setReleases] = useState<Release[]>([])
-  const [releasesSource, setReleasesSource] = useState<'live' | 'demo'>('demo')
-  const [busy, setBusy] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('orgs')
+  const [orgs, setOrgs] = useState<OrgRow[]>([])
+  const [source, setSource] = useState<'live' | 'demo'>('demo')
+  const [selectedOrg, setSelectedOrg] = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/admin/users')
+    fetch('/api/admin/orgs')
       .then(r => r.json())
-      .then(d => {
-        if (d.users?.length) {
-          setUsers(d.users)
-          setUsersSource(d.source ?? 'demo')
-        }
-      })
+      .then(d => { setOrgs(d.orgs ?? []); setSource(d.source ?? 'demo') })
       .catch(() => {})
-    fetchReleases().then(({ rows, source }) => {
-      setReleases(rows)
-      setReleasesSource(source)
-    })
   }, [])
 
-  const byCounty = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const r of releases) counts[r.county] = (counts[r.county] ?? 0) + 1
-    return Object.entries(counts).sort((a, b) => b[1] - a[1])
-  }, [releases])
-
-  const attestedCount = users.filter(u => u.attested_permitted_use).length
-
-  async function patchUser(id: string, patch: { role?: string; status?: string }) {
-    setBusy(id)
-    setError(null)
-    if (usersSource === 'demo') {
-      // Local-only in demo mode.
-      setUsers(us => us.map(u => (u.id === id ? { ...u, ...patch } as AdminUser : u)))
-      setBusy(null)
-      return
-    }
-    const res = await fetch('/api/admin/users', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, ...patch }),
-    })
-    const d = await res.json()
-    if (!res.ok) setError(d.error ?? 'Update failed')
-    else setUsers(us => us.map(u => (u.id === id ? { ...u, ...patch } as AdminUser : u)))
-    setBusy(null)
-  }
+  const demo = source === 'demo'
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--po-bg)', display: 'flex', flexDirection: 'column' }}>
-      {/* Admin topbar — navy, distinct from the member dashboard */}
       <header style={{ height: 60, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 22px', background: 'var(--po-navy)', borderBottom: '1px solid rgba(226,232,240,0.12)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 22 }}>
           <a href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 9, textDecoration: 'none' }}>
@@ -128,23 +83,23 @@ export function AdminApp() {
               <rect x="3" y="3" width="18" height="18" rx="5" stroke="var(--po-blue)" strokeWidth="1.9" />
               <path d="M8 14.5l2.5-3 2 2.2L16 9" stroke="var(--po-blue)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-            <span className="po-display" style={{ fontSize: 16, fontWeight: 600, color: '#F1F5F9' }}>
+            <span className="po-display" style={{ fontSize: 16, fontWeight: 600, color: 'var(--po-accent-fg)' }}>
               Reentry<span style={{ color: 'var(--po-blue)', fontWeight: 700 }}>IQ</span>
             </span>
           </a>
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#0F172A', background: 'var(--po-blue)', padding: '3px 10px', borderRadius: 999 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--po-navy)', background: 'var(--po-blue)', padding: '3px 10px', borderRadius: 999 }}>
             Admin
           </span>
           <nav style={{ display: 'flex', gap: 2 }}>
             {TABS.map(t => (
               <button
                 key={t.id}
-                onClick={() => setTab(t.id)}
+                onClick={() => { setTab(t.id); setSelectedOrg(null) }}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 7, height: 34, padding: '0 13px',
                   borderRadius: 'var(--po-r-sm)', border: 'none', cursor: 'pointer', fontFamily: 'inherit',
                   background: tab === t.id ? 'rgba(255,255,255,0.10)' : 'transparent',
-                  color: tab === t.id ? '#F1F5F9' : '#94A3B8', fontSize: 13, fontWeight: 500,
+                  color: tab === t.id ? 'var(--po-accent-fg)' : 'var(--po-text-3)', fontSize: 13, fontWeight: 500,
                 }}
               >
                 <Icon name={t.icon} size={15} />
@@ -154,164 +109,322 @@ export function AdminApp() {
           </nav>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {usersSource === 'demo' && (
-            <span style={{ fontSize: 11, fontWeight: 600, color: '#E0A33A', border: '1px solid rgba(224,163,58,0.4)', background: 'rgba(224,163,58,0.12)', padding: '3px 10px', borderRadius: 999 }}>
+          {demo && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--po-warn)', border: '1px solid var(--po-warn-line)', background: 'var(--po-warn-wash)', padding: '3px 10px', borderRadius: 999 }}>
               Demo mode — connect Supabase
             </span>
           )}
-          <a href="/dashboard" style={{ fontSize: 13, fontWeight: 500, color: '#94A3B8', textDecoration: 'none' }}>
+          <a href="/dashboard" style={{ fontSize: 13, fontWeight: 500, color: 'var(--po-text-3)', textDecoration: 'none' }}>
             ← Member dashboard
           </a>
         </div>
       </header>
 
       <main style={{ flex: 1, maxWidth: 1100, width: '100%', margin: '0 auto', padding: '26px 24px 60px' }}>
-        {error && (
-          <div style={{ marginBottom: 16, padding: '11px 14px', borderRadius: 'var(--po-r-sm)', background: 'rgba(194,94,94,0.08)', border: '1px solid rgba(194,94,94,0.35)', color: '#A14848', fontSize: 13 }}>
-            {error}
-          </div>
+        {tab === 'orgs' && (
+          selectedOrg
+            ? <OrgDetail orgId={selectedOrg} demo={demo} onBack={() => setSelectedOrg(null)} />
+            : <OrgsList orgs={orgs} demo={demo} onSelect={setSelectedOrg} />
         )}
-
-        {/* ── Overview ── */}
-        {tab === 'overview' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <h1 className="po-display" style={{ fontSize: 22, fontWeight: 700, color: 'var(--po-text)', margin: 0 }}>Platform overview</h1>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <StatCard label="Accounts" value={String(users.length)} sub={`${users.filter(u => u.status === 'active').length} active`} />
-              <StatCard label="Attested" value={`${attestedCount} / ${users.length}`} sub="Permitted-use attestations" accent={attestedCount === users.length ? 'var(--po-sage)' : '#E0A33A'} />
-              <StatCard label="Release Records" value={releases.length.toLocaleString()} sub={releasesSource === 'live' ? 'Live database' : 'Demo dataset'} accent="var(--po-blue)" />
-              <StatCard label="Data Source" value={releasesSource === 'live' ? 'Live' : 'Demo'} sub={releasesSource === 'live' ? 'Supabase connected' : 'Awaiting real data'} accent={releasesSource === 'live' ? 'var(--po-sage)' : undefined} />
-            </div>
-
-            <div className="card" style={{ padding: '16px 18px' }}>
-              <h2 className="po-display" style={{ fontSize: 15, fontWeight: 600, color: 'var(--po-text)', margin: '0 0 12px' }}>Go-live checklist</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                {[
-                  { done: true, label: 'Site, dashboard, AI assistant, and auth deployed' },
-                  { done: usersSource === 'live', label: 'Supabase connected (URL, anon key, service role key in Vercel)' },
-                  { done: usersSource === 'live', label: 'Migrations 0001–0003 run in the Supabase SQL editor' },
-                  { done: releasesSource === 'live', label: 'Real release data loaded into public.releases' },
-                  { done: false, label: 'Legal pages reviewed by counsel' },
-                ].map((item, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13.5, color: item.done ? 'var(--po-text-2)' : 'var(--po-text)' }}>
-                    <span style={{ width: 20, height: 20, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: item.done ? 'var(--po-sage-wash)' : 'var(--po-track)', border: `1px solid ${item.done ? 'var(--po-sage-line)' : 'var(--po-line-strong)'}` }}>
-                      {item.done && <Icon name="check" size={12} stroke="var(--po-sage)" strokeWidth={2.4} />}
-                    </span>
-                    {item.label}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── Users ── */}
-        {tab === 'users' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-              <h1 className="po-display" style={{ fontSize: 22, fontWeight: 700, color: 'var(--po-text)', margin: 0 }}>Users</h1>
-              <span style={{ fontSize: 12.5, color: 'var(--po-text-3)' }}>
-                {usersSource === 'demo' ? 'Sample accounts — changes are local until Supabase is connected' : `${users.length} accounts`}
-              </span>
-            </div>
-            <div style={{ overflowX: 'auto', border: '1px solid var(--po-line)', borderRadius: 'var(--po-r-sm)', background: 'var(--po-panel)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: 'var(--po-navy)' }}>
-                    {['Email', 'Organization', 'Type', 'Role', 'Attested', 'Joined', 'Status', 'Actions'].map(h => (
-                      <th key={h} style={{ padding: '9px 13px', textAlign: 'left', color: '#fff', fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u, i) => (
-                    <tr key={u.id} style={{ background: i % 2 ? 'var(--po-panel-2)' : 'var(--po-panel)' }}>
-                      <td style={{ padding: '9px 13px', borderTop: '1px solid var(--po-line)', whiteSpace: 'nowrap' }}>
-                        <b style={{ color: 'var(--po-text)' }}>{u.email}</b>
-                      </td>
-                      <td style={{ padding: '9px 13px', borderTop: '1px solid var(--po-line)', color: 'var(--po-text)', whiteSpace: 'nowrap' }}>{u.org_name ?? '—'}</td>
-                      <td style={{ padding: '9px 13px', borderTop: '1px solid var(--po-line)', color: 'var(--po-text-2)', whiteSpace: 'nowrap' }}>{u.org_type ?? '—'}</td>
-                      <td style={{ padding: '9px 13px', borderTop: '1px solid var(--po-line)' }}>
-                        <Pill tone={u.role === 'admin' ? 'blue' : 'gray'}>{u.role}</Pill>
-                      </td>
-                      <td style={{ padding: '9px 13px', borderTop: '1px solid var(--po-line)' }}>
-                        {u.attested_permitted_use
-                          ? <span title={fmtDateTime(u.attested_at)}><Pill tone="sage">Attested</Pill></span>
-                          : <Pill tone="red">Missing</Pill>}
-                      </td>
-                      <td className="po-mono" style={{ padding: '9px 13px', borderTop: '1px solid var(--po-line)', color: 'var(--po-text-2)', whiteSpace: 'nowrap' }}>{fmtDateTime(u.created_at)}</td>
-                      <td style={{ padding: '9px 13px', borderTop: '1px solid var(--po-line)' }}>
-                        <Pill tone={u.status === 'active' ? 'sage' : 'red'}>{u.status}</Pill>
-                      </td>
-                      <td style={{ padding: '9px 13px', borderTop: '1px solid var(--po-line)', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'flex', gap: 7 }}>
-                          <button
-                            onClick={() => patchUser(u.id, { role: u.role === 'admin' ? 'member' : 'admin' })}
-                            disabled={busy === u.id || ADMIN_EMAILS.includes(u.email.toLowerCase())}
-                            style={{ padding: '5px 11px', borderRadius: 999, border: '1px solid var(--po-line-strong)', background: 'var(--po-panel)', color: 'var(--po-text-2)', fontSize: 11.5, fontWeight: 600, cursor: ADMIN_EMAILS.includes(u.email.toLowerCase()) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: ADMIN_EMAILS.includes(u.email.toLowerCase()) ? 0.45 : 1 }}
-                          >
-                            {u.role === 'admin' ? 'Make member' : 'Make admin'}
-                          </button>
-                          <button
-                            onClick={() => patchUser(u.id, { status: u.status === 'active' ? 'suspended' : 'active' })}
-                            disabled={busy === u.id || ADMIN_EMAILS.includes(u.email.toLowerCase())}
-                            style={{ padding: '5px 11px', borderRadius: 999, border: `1px solid ${u.status === 'active' ? 'rgba(194,94,94,0.4)' : 'var(--po-sage-line)'}`, background: 'var(--po-panel)', color: u.status === 'active' ? '#A14848' : 'var(--po-sage)', fontSize: 11.5, fontWeight: 600, cursor: ADMIN_EMAILS.includes(u.email.toLowerCase()) ? 'not-allowed' : 'pointer', fontFamily: 'inherit', opacity: ADMIN_EMAILS.includes(u.email.toLowerCase()) ? 0.45 : 1 }}
-                          >
-                            {u.status === 'active' ? 'Suspend' : 'Reinstate'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <p style={{ fontSize: 12, color: 'var(--po-text-3)', margin: 0 }}>
-              The platform admin account ({ADMIN_EMAILS[0]}) cannot be demoted or suspended. Accounts without an attestation should be suspended until they re-attest.
-            </p>
-          </div>
-        )}
-
-        {/* ── Data ── */}
-        {tab === 'data' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <h1 className="po-display" style={{ fontSize: 22, fontWeight: 700, color: 'var(--po-text)', margin: 0 }}>Data</h1>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <StatCard label="Records" value={releases.length.toLocaleString()} sub="Upcoming releases" />
-              <StatCard label="Counties" value={String(byCounty.length)} sub="With releases" />
-              <StatCard label="Source" value={releasesSource === 'live' ? 'Live' : 'Demo'} sub={releasesSource === 'live' ? 'public.releases' : 'Deterministic sample'} accent={releasesSource === 'live' ? 'var(--po-sage)' : '#E0A33A'} />
-            </div>
-
-            <div className="card" style={{ padding: '16px 18px' }}>
-              <h2 className="po-display" style={{ fontSize: 15, fontWeight: 600, color: 'var(--po-text)', margin: '0 0 12px' }}>Records by county</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {byCounty.slice(0, 10).map(([county, count]) => {
-                  const max = byCounty[0]?.[1] ?? 1
-                  return (
-                    <div key={county} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span style={{ width: 90, fontSize: 12.5, color: 'var(--po-text-2)', flexShrink: 0 }}>{county}</span>
-                      <div style={{ flex: 1, height: 18, background: 'var(--po-track)', borderRadius: 4, overflow: 'hidden' }}>
-                        <div style={{ width: `${(count / max) * 100}%`, height: '100%', background: 'var(--po-blue)', borderRadius: 4 }} />
-                      </div>
-                      <span className="po-mono" style={{ width: 44, textAlign: 'right', fontSize: 12.5, color: 'var(--po-text)', fontWeight: 600 }}>{count}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            <div className="card" style={{ padding: '16px 18px' }}>
-              <h2 className="po-display" style={{ fontSize: 15, fontWeight: 600, color: 'var(--po-text)', margin: '0 0 10px' }}>Connecting real data</h2>
-              <ol style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 13.5, lineHeight: 1.6, color: 'var(--po-text-2)' }}>
-                <li>Run <code className="po-mono" style={{ fontSize: 12 }}>supabase/migrations/0001 → 0003</code> in the Supabase SQL editor.</li>
-                <li>Set <code className="po-mono" style={{ fontSize: 12 }}>NEXT_PUBLIC_SUPABASE_URL</code>, <code className="po-mono" style={{ fontSize: 12 }}>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>, <code className="po-mono" style={{ fontSize: 12 }}>SUPABASE_SERVICE_ROLE_KEY</code>, and <code className="po-mono" style={{ fontSize: 12 }}>ANTHROPIC_API_KEY</code> in Vercel, then redeploy.</li>
-                <li>Load rows into <code className="po-mono" style={{ fontSize: 12 }}>public.releases</code> — <code className="po-mono" style={{ fontSize: 12 }}>scripts/seed-demo-data.mjs</code> documents the exact row shape for your importer.</li>
-                <li>This page (and the whole app) switches to live data automatically; demo labels disappear.</li>
-              </ol>
-            </div>
-          </div>
-        )}
+        {tab === 'billing' && <BillingScreen />}
+        {tab === 'usage' && <UsageScreen />}
+        {tab === 'pipeline' && <PipelineScreen />}
       </main>
     </div>
   )
+}
+
+/* ── Screen 1: Orgs list ────────────────────────────────────────── */
+
+type SortKey = 'created' | 'mrr' | 'usage'
+
+function OrgsList({ orgs, demo, onSelect }: { orgs: OrgRow[]; demo: boolean; onSelect: (id: string) => void }) {
+  const [sort, setSort] = useState<SortKey>('created')
+  const [planFilter, setPlanFilter] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
+
+  const filtered = useMemo(() => {
+    let rows = orgs
+    if (planFilter) rows = rows.filter(o => o.plan === planFilter)
+    if (statusFilter) rows = rows.filter(o => o.status === statusFilter)
+    const sorted = [...rows]
+    if (sort === 'created') sorted.sort((a, b) => b.created_at.localeCompare(a.created_at))
+    if (sort === 'mrr') sorted.sort((a, b) => b.mrr_cents - a.mrr_cents)
+    if (sort === 'usage') sorted.sort((a, b) => b.usage_pct - a.usage_pct)
+    return sorted
+  }, [orgs, sort, planFilter, statusFilter])
+
+  const plans = ['starter', 'pro', 'enterprise']
+  const statuses = ['active', 'trialing', 'past_due', 'paused', 'comped', 'canceled']
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+        <h1 className="po-display" style={{ fontSize: 22, fontWeight: 700, color: 'var(--po-text)', margin: 0 }}>Organizations</h1>
+        <span style={{ fontSize: 12.5, color: 'var(--po-text-3)' }}>{filtered.length} of {orgs.length} orgs</span>
+      </div>
+
+      {/* Filters + sort */}
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <FilterGroup label="Plan" options={plans} value={planFilter} onChange={setPlanFilter} />
+        <FilterGroup label="Status" options={statuses} value={statusFilter} onChange={setStatusFilter} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="po-label" style={{ fontSize: 10 }}>Sort</span>
+          {(['created', 'mrr', 'usage'] as SortKey[]).map(k => (
+            <button key={k} onClick={() => setSort(k)} style={chip(sort === k)}>{k === 'mrr' ? 'MRR' : k}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ overflowX: 'auto', border: '1px solid var(--po-line)', borderRadius: 'var(--po-r-sm)', background: 'var(--po-panel)' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: 'var(--po-navy)' }}>
+              {['Organization', 'Plan', 'Status', 'MRR', 'Usage', 'Seats', 'Created'].map(h => (
+                <th key={h} style={{ padding: '9px 13px', textAlign: 'left', color: 'var(--po-accent-fg)', fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((o, i) => (
+              <tr
+                key={o.id}
+                onClick={() => onSelect(o.id)}
+                style={{ background: i % 2 ? 'var(--po-panel-2)' : 'var(--po-panel)', cursor: 'pointer' }}
+              >
+                <td style={{ padding: '10px 13px', borderTop: '1px solid var(--po-line)', whiteSpace: 'nowrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <b style={{ color: 'var(--po-text)' }}>{o.name}</b>
+                    <Icon name="chevronRight" size={14} stroke="var(--po-text-3)" />
+                  </div>
+                </td>
+                <td style={{ padding: '10px 13px', borderTop: '1px solid var(--po-line)' }}><Pill tone={planTone(o.plan)}>{o.plan}</Pill></td>
+                <td style={{ padding: '10px 13px', borderTop: '1px solid var(--po-line)' }}><Pill tone={statusTone(o.status)}>{o.status}</Pill></td>
+                <td className="po-mono" style={{ padding: '10px 13px', borderTop: '1px solid var(--po-line)', color: 'var(--po-text)', fontWeight: 600, whiteSpace: 'nowrap' }}>{fmtMoney(o.mrr_cents)}</td>
+                <td style={{ padding: '10px 13px', borderTop: '1px solid var(--po-line)', minWidth: 130 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <UsageBar pct={o.usage_pct} />
+                    <span className="po-mono" style={{ fontSize: 11.5, color: usageColor(o.usage_pct), fontWeight: 600, width: 36, textAlign: 'right' }}>{o.usage_pct}%</span>
+                  </div>
+                </td>
+                <td className="po-mono" style={{ padding: '10px 13px', borderTop: '1px solid var(--po-line)', color: 'var(--po-text-2)' }}>{o.members}</td>
+                <td className="po-mono" style={{ padding: '10px 13px', borderTop: '1px solid var(--po-line)', color: 'var(--po-text-2)', whiteSpace: 'nowrap' }}>{fmtDate(o.created_at)}</td>
+              </tr>
+            ))}
+            {filtered.length === 0 && (
+              <tr><td colSpan={7} style={{ padding: '18px 13px', textAlign: 'center', color: 'var(--po-text-3)', fontSize: 13 }}>No orgs match these filters.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {demo && <p style={{ fontSize: 12, color: 'var(--po-text-3)', margin: 0 }}>Sample orgs — connect Supabase to manage live tenants.</p>}
+    </div>
+  )
+}
+
+function FilterGroup({ label, options, value, onChange }: { label: string; options: string[]; value: string | null; onChange: (v: string | null) => void }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <span className="po-label" style={{ fontSize: 10 }}>{label}</span>
+      <button onClick={() => onChange(null)} style={chip(value === null)}>All</button>
+      {options.map(o => (
+        <button key={o} onClick={() => onChange(value === o ? null : o)} style={chip(value === o)}>{o}</button>
+      ))}
+    </div>
+  )
+}
+
+function chip(active: boolean): React.CSSProperties {
+  return {
+    padding: '4px 11px', borderRadius: 999, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
+    border: `1px solid ${active ? 'var(--po-copper-line)' : 'var(--po-line)'}`,
+    background: active ? 'var(--po-copper-wash)' : 'var(--po-panel)',
+    color: active ? 'var(--po-blue-700)' : 'var(--po-text-2)',
+    textTransform: 'capitalize',
+  }
+}
+
+/* ── Screen 3: Billing ──────────────────────────────────────────── */
+
+function BillingScreen() {
+  const [data, setData] = useState<BillingData | null>(null)
+  useEffect(() => { fetch('/api/admin/billing').then(r => r.json()).then(setData).catch(() => {}) }, [])
+  if (!data) return <Loading />
+
+  const maxTierMrr = Math.max(1, ...data.by_tier.map(t => t.mrr_cents))
+  const rampFor: Record<string, 1 | 2 | 3 | 4 | 5> = { starter: 2, pro: 3, enterprise: 5 }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <h1 className="po-display" style={{ fontSize: 22, fontWeight: 700, color: 'var(--po-text)', margin: 0 }}>Billing overview</h1>
+
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <StatCard label="Total MRR" value={fmtMoney(data.total_mrr_cents)} sub={`Period ${data.period}`} accent="var(--po-blue)" />
+        <StatCard label="Past due" value={String(data.past_due_count)} sub="needs attention" accent={data.past_due_count > 0 ? 'var(--po-danger)' : 'var(--po-sage)'} />
+        <StatCard label="Overage revenue" value={fmtMoney(data.overage_revenue_cents)} sub="this period" accent="var(--po-sage)" />
+      </div>
+
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        {data.by_tier.map(t => (
+          <StatCard key={t.plan} label={`${t.plan} subs`} value={String(t.subs)} sub={`${fmtMoney(t.mrr_cents)} MRR`} />
+        ))}
+      </div>
+
+      <Section title="MRR by tier">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {data.by_tier.map(t => (
+            <RampBar key={t.plan} label={t.plan} value={t.mrr_cents / 100} max={maxTierMrr / 100} rampIdx={rampFor[t.plan] ?? 3} suffix="" />
+          ))}
+        </div>
+      </Section>
+
+      <Section title={`Past-due orgs (${data.past_due.length})`}>
+        {data.past_due.length === 0
+          ? <p style={{ fontSize: 13, color: 'var(--po-text-3)', margin: 0 }}>No past-due accounts.</p>
+          : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {data.past_due.map(o => (
+                <div key={o.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 'var(--po-r-sm)', background: 'var(--po-danger-wash)', border: '1px solid var(--po-danger-line)' }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--po-text)' }}>{o.name}</span>
+                  <Pill tone={planTone(o.plan)}>{o.plan}</Pill>
+                </div>
+              ))}
+            </div>
+          )}
+      </Section>
+    </div>
+  )
+}
+
+/* ── Screen 4: Usage across tenants ─────────────────────────────── */
+
+function UsageScreen() {
+  const [data, setData] = useState<UsageData | null>(null)
+  useEffect(() => { fetch('/api/admin/usage').then(r => r.json()).then(setData).catch(() => {}) }, [])
+  if (!data) return <Loading />
+
+  const maxTop = Math.max(1, ...data.top_orgs.map(o => o.reveals))
+  const maxTrend = Math.max(1, ...data.trend.map(t => t.total))
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <h1 className="po-display" style={{ fontSize: 22, fontWeight: 700, color: 'var(--po-text)', margin: 0 }}>Usage across tenants</h1>
+
+      <Section title={`Reveals this period (${data.period}) — top ${Math.min(10, data.top_orgs.length)}`}>
+        {data.top_orgs.length === 0
+          ? <p style={{ fontSize: 13, color: 'var(--po-text-3)', margin: 0 }}>No reveals recorded this period.</p>
+          : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {data.top_orgs.map(o => <RampBar key={o.id} label={o.name} value={o.reveals} max={maxTop} rampIdx={3} />)}
+            </div>
+          )}
+      </Section>
+
+      <Section title="Platform reveals — 6-period trend">
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 160, padding: '0 4px' }}>
+          {data.trend.map(t => {
+            const h = (t.total / maxTrend) * 130
+            const ramp = (Math.min(5, Math.max(1, Math.round((t.total / maxTrend) * 5))) || 1) as 1 | 2 | 3 | 4 | 5
+            return (
+              <div key={t.period} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                <span className="po-mono" style={{ fontSize: 11, color: 'var(--po-text-2)', fontWeight: 600 }}>{t.total.toLocaleString()}</span>
+                <div style={{ width: '100%', maxWidth: 56, height: Math.max(2, h), background: `var(--po-ramp-${ramp})`, borderRadius: '4px 4px 0 0' }} title={`${t.period}: ${t.total}`} />
+                <span className="po-mono" style={{ fontSize: 10.5, color: 'var(--po-text-3)' }}>{t.period.slice(2)}</span>
+              </div>
+            )
+          })}
+        </div>
+      </Section>
+
+      <Section title="Top orgs">
+        <div style={{ overflowX: 'auto', border: '1px solid var(--po-line)', borderRadius: 'var(--po-r-sm)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: 'var(--po-navy)' }}>
+                {['Organization', 'Reveals this period'].map(h => (
+                  <th key={h} style={{ padding: '9px 13px', textAlign: 'left', color: 'var(--po-accent-fg)', fontSize: 11, fontWeight: 700, letterSpacing: '0.07em', textTransform: 'uppercase' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.top_orgs.map((o, i) => (
+                <tr key={o.id} style={{ background: i % 2 ? 'var(--po-panel-2)' : 'var(--po-panel)' }}>
+                  <td style={{ padding: '9px 13px', borderTop: '1px solid var(--po-line)', color: 'var(--po-text)', fontWeight: 600 }}>{o.name}</td>
+                  <td className="po-mono" style={{ padding: '9px 13px', borderTop: '1px solid var(--po-line)', color: 'var(--po-text-2)' }}>{o.reveals.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Section>
+    </div>
+  )
+}
+
+/* ── Screen 5: Pipeline health ──────────────────────────────────── */
+
+function PipelineScreen() {
+  const [data, setData] = useState<PipelineData | null>(null)
+  useEffect(() => { fetch('/api/admin/pipeline').then(r => r.json()).then(setData).catch(() => {}) }, [])
+  if (!data) return <Loading />
+
+  const op = data.scraper === 'operational'
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <h1 className="po-display" style={{ fontSize: 22, fontWeight: 700, color: 'var(--po-text)', margin: 0 }}>Pipeline health</h1>
+
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <StatusRow
+          icon="plug"
+          title="Scraper"
+          detail={data.detail}
+          tone={op ? 'sage' : 'warn'}
+          status={op ? 'Operational' : 'Unreachable'}
+        />
+        <StatusRow
+          icon="clock"
+          title="Last sync"
+          detail={data.last_sync ? new Date(data.last_sync).toLocaleString('en-US') : 'No successful sync recorded.'}
+          tone="slate"
+          status={data.last_sync ? 'Recorded' : 'None'}
+          border
+        />
+        <StatusRow
+          icon="layers"
+          title="Inmate records"
+          detail={data.inmates !== null ? `${data.inmates.toLocaleString()} records indexed.` : 'Count unavailable.'}
+          tone="blue"
+          status={data.inmates !== null ? data.inmates.toLocaleString() : '—'}
+          border
+        />
+      </div>
+
+      {data.source === 'demo' && (
+        <p style={{ fontSize: 12, color: 'var(--po-text-3)', margin: 0 }}>
+          Demo mode — scraper unreachable is expected without a running worker. Set SCRAPER_BASE_URL and connect Supabase for live status.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function StatusRow({ icon, title, detail, tone, status, border }: { icon: string; title: string; detail: string; tone: 'sage' | 'warn' | 'slate' | 'blue'; status: string; border?: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderTop: border ? '1px solid var(--po-line)' : 'none' }}>
+      <span style={{ width: 36, height: 36, borderRadius: 'var(--po-r-sm)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--po-track)' }}>
+        <Icon name={icon} size={18} stroke="var(--po-text-2)" />
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="po-display" style={{ fontSize: 14, fontWeight: 600, color: 'var(--po-text)' }}>{title}</div>
+        <div style={{ fontSize: 12.5, color: 'var(--po-text-3)' }}>{detail}</div>
+      </div>
+      <Pill tone={tone}>{status}</Pill>
+    </div>
+  )
+}
+
+function Loading() {
+  return <p style={{ color: 'var(--po-text-3)', fontSize: 13 }}>Loading…</p>
 }

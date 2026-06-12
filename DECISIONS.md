@@ -2,6 +2,21 @@
 
 Autonomous decisions made while building, newest first.
 
+## 2026-06-12 — Platform admin + Stripe billing
+
+- Stripe SDK pinned to v17.7.0: the spec's metered rollup uses
+  `subscriptionItems.createUsageRecord`, removed in SDK v18+. v17 is the newest
+  line exposing it (apiVersion 2025-02-24.acacia).
+- Webhook idempotency = claim-first insert into `stripe_events` (23505 → duplicate,
+  200 immediately). Rollup idempotency = `action: 'set'` per period.
+- Price identity via lookup_keys (`{plan}_{monthly|annual|overage}`); products
+  matched by `metadata.reentryiq_plan` — setup script re-runs are no-ops.
+- MRR rule in admin: annual interval ÷ 12; comped/paused/canceled count $0.
+- Admin gate accepts: platform_admins table (via is_platform_admin RPC), the
+  hardcoded operator email, or profiles.role='admin' (legacy) — in that order.
+- All admin/billing routes degrade to deterministic demo data when Supabase env
+  is unset; nothing crashes in an unconfigured deploy.
+
 ## 2026-06-12 — Record panel + AI chat + light dashboard redesign
 
 - **Environment reality:** the scraper (FastAPI on 127.0.0.1:8000, report_html.py,

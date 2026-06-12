@@ -16,12 +16,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user) redirect('/signin')
 
   if (!isAdminEmail(user.email)) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
-    if (profile?.role !== 'admin') redirect('/dashboard')
+    // Accept platform_admins rows (operator allowlist) via the security-definer RPC.
+    const { data: isPlatformAdmin } = await supabase.rpc('is_platform_admin')
+    if (isPlatformAdmin !== true) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+      if (profile?.role !== 'admin') redirect('/dashboard')
+    }
   }
 
   return <>{children}</>
