@@ -14,8 +14,9 @@ release, get alerted as dates land, and push matches into your CRM. Built by Man
 | Resources | `/data-sourcing` `/compliance` `/help` `/status` |
 | Legal | `/terms` `/privacy` `/acceptable-use` `/fcra-notice` |
 | App | `/dashboard` (search engine) `/agent` (AI data assistant) |
+| Admin | `/admin` (users, attestations, data status — admin accounts only) |
 | Auth | `/signin` `/signup` (with permitted-use attestation) `/auth/callback` |
-| API | `POST /api/agent` (AI assistant backend) |
+| API | `POST /api/agent` (AI assistant) · `/api/admin/*` (admin, role-guarded) |
 
 ## Local development
 
@@ -40,9 +41,10 @@ and labels itself "Sample data."
 
 ## Connecting real data
 
-1. **Create the schema** — run both files in the Supabase SQL editor, in order:
+1. **Create the schema** — run the files in the Supabase SQL editor, in order:
    - `supabase/migrations/0001_releases.sql`
    - `supabase/migrations/0002_releases_full_schema.sql`
+   - `supabase/migrations/0003_profiles_admin.sql` (profiles, roles, signup trigger)
 2. **Load rows** into `public.releases`. To verify the pipeline first, seed demo rows:
    ```bash
    NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/seed-demo-data.mjs
@@ -50,6 +52,15 @@ and labels itself "Sample data."
    Your real ADCRR importer should produce the same row shape (see the script).
 3. That's it. `lib/data-source.ts` and the AI agent automatically switch from demo
    to live data whenever the table has rows; "Sample data" labels disappear.
+
+## Admin
+
+The platform admin is `brianreinhart3617@gmail.com` (allowlisted in `lib/admin.ts`
+and `public.is_admin_email()` — keep the two in sync). Sign up with that email and
+the signup trigger grants the admin role automatically. Admins get an **Admin**
+link in the dashboard topbar and access to `/admin`: platform overview &
+go-live checklist, user management (roles, suspensions, attestation audit), and
+data status. The admin account cannot be demoted or suspended.
 
 ## Data & compliance posture
 

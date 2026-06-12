@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
 import { AgentChat } from '@/components/agent/AgentChat'
+import { isAdminEmail } from '@/lib/admin'
 import { USAGE } from './types'
 
 /* Navy palette (light-on-navy chrome) */
@@ -56,6 +57,18 @@ export function TopBar({
   onAskAi: () => void
 }) {
   const pct = Math.min(1, USAGE.used / USAGE.included)
+
+  // Show the Admin link only to the platform admin account.
+  const [isAdmin, setIsAdmin] = useState(false)
+  useEffect(() => {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) return
+    import('@/lib/supabase/client').then(({ createClient }) => {
+      createClient()
+        .auth.getUser()
+        .then(({ data }) => setIsAdmin(isAdminEmail(data.user?.email)))
+        .catch(() => {})
+    })
+  }, [])
 
   return (
     <header
@@ -136,6 +149,29 @@ export function TopBar({
             <div style={{ width: `${pct * 100}%`, height: '100%', background: usageColor(pct), borderRadius: 3 }} />
           </div>
         </div>
+
+        {isAdmin && (
+          <a
+            href="/admin"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              height: 34,
+              padding: '0 12px',
+              borderRadius: 'var(--po-r-sm)',
+              border: `1px solid ${N.lineInput}`,
+              color: N.text,
+              fontSize: 12.5,
+              fontWeight: 600,
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <Icon name="shield" size={14} stroke={N.text} />
+            Admin
+          </a>
+        )}
 
         <button
           onClick={onAskAi}
