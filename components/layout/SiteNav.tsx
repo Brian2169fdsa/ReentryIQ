@@ -11,38 +11,38 @@ const MEGA = [
     items: [
       { label: 'Dashboard', href: '/dashboard', desc: 'Your release pipeline at a glance', icon: 'dashboard' },
       { label: 'Pricing', href: '/pricing', desc: 'Plans, overage & nonprofit rates', icon: 'gauge' },
-      { label: 'Connectors', href: '#', desc: 'Salesforce, KIPU, Sunwave, webhooks', icon: 'plug' },
-      { label: 'REST API', href: '#', desc: 'Read-only access to your scope', icon: 'compass' },
+      { label: 'Connectors', href: '/connectors', desc: 'Salesforce, KIPU, Sunwave, webhooks', icon: 'plug' },
+      { label: 'REST API', href: '/developers', desc: 'Read-only access to your scope', icon: 'compass' },
     ],
   },
   {
     id: 'Company',
     aside: 'The mission and the people behind ReentryIQ.',
     items: [
-      { label: 'About', href: '#', desc: 'Why we built ReentryIQ', icon: 'users' },
-      { label: 'Our mission', href: '#', desc: 'Reentry, recovery, second chances', icon: 'target' },
-      { label: 'Contact', href: '#', desc: 'Talk to the team', icon: 'send' },
-      { label: 'Careers', href: '#', desc: 'Join the team', icon: 'building' },
+      { label: 'About', href: '/about', desc: 'Why we built ReentryIQ', icon: 'users' },
+      { label: 'Our mission', href: '/mission', desc: 'Reentry, recovery, second chances', icon: 'target' },
+      { label: 'Contact', href: '/contact', desc: 'Talk to the team', icon: 'send' },
+      { label: 'Careers', href: '/careers', desc: 'Join the team', icon: 'building' },
     ],
   },
   {
     id: 'Resources',
     aside: 'How the data works and how to get help.',
     items: [
-      { label: 'Data sourcing', href: '#', desc: 'Public ADCRR records, refreshed daily', icon: 'fileText' },
-      { label: 'Compliance', href: '#', desc: 'Permitted-use & FCRA posture', icon: 'shield' },
-      { label: 'Help center', href: '#', desc: 'Guides and answers', icon: 'helpCircle' },
-      { label: 'Status', href: '#', desc: 'System uptime', icon: 'checkCircle' },
+      { label: 'Data sourcing', href: '/data-sourcing', desc: 'Public ADCRR records, refreshed daily', icon: 'fileText' },
+      { label: 'Compliance', href: '/compliance', desc: 'Permitted-use & FCRA posture', icon: 'shield' },
+      { label: 'Help center', href: '/help', desc: 'Guides and answers', icon: 'helpCircle' },
+      { label: 'Status', href: '/status', desc: 'System uptime', icon: 'checkCircle' },
     ],
   },
   {
     id: 'Legal',
     aside: 'Terms, privacy, and permitted use.',
     items: [
-      { label: 'Terms of Service', href: '#', desc: 'The agreement', icon: 'fileText' },
-      { label: 'Privacy Policy', href: '#', desc: 'How we handle data', icon: 'shield' },
-      { label: 'Acceptable Use', href: '#', desc: 'Prohibited uses, plainly', icon: 'list' },
-      { label: 'FCRA Notice', href: '#', desc: 'Not for screening', icon: 'note' },
+      { label: 'Terms of Service', href: '/terms', desc: 'The agreement', icon: 'fileText' },
+      { label: 'Privacy Policy', href: '/privacy', desc: 'How we handle data', icon: 'shield' },
+      { label: 'Acceptable Use', href: '/acceptable-use', desc: 'Prohibited uses, plainly', icon: 'list' },
+      { label: 'FCRA Notice', href: '/fcra-notice', desc: 'Not for screening', icon: 'note' },
     ],
   },
 ]
@@ -118,14 +118,14 @@ export function SiteNav() {
         {/* Right actions */}
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 18, flexShrink: 0 }}>
           <a
-            href="/dashboard"
+            href="/signin"
             className="l-nav-hide"
             style={{ fontSize: 14, fontWeight: 500, color: 'var(--po-text-2)', textDecoration: 'none', whiteSpace: 'nowrap' }}
           >
             Sign in
           </a>
           <a
-            href="/dashboard"
+            href="/signup"
             style={{
               fontSize: 14,
               fontWeight: 600,

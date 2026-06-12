@@ -36,7 +36,7 @@ export function CtaBand() {
         </div>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
           <a
-            href="/dashboard"
+            href="/signup"
             style={{
               display: 'inline-flex',
               alignItems: 'center',

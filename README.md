@@ -1,25 +1,59 @@
-# CODING AGENTS: READ THIS FIRST
+# ReentryIQ
 
-This is a **handoff bundle** from Claude Design (claude.ai/design).
+Arizona release intelligence for reentry & recovery programs. Search every upcoming
+release, get alerted as dates land, and push matches into your CRM. Built by Manage AI.
 
-A user mocked up designs in HTML/CSS/JS using an AI design tool, then exported this bundle so a coding agent can implement the designs for real.
+**Stack:** Next.js 14 (App Router) · TypeScript · Tailwind/CSS variables · Supabase
+(database + auth) · Vercel AI SDK + Anthropic (AI data assistant) · Vercel (hosting)
 
-## What you should do — IMPORTANT
+## Routes
 
-**Read the chat transcripts first.** There are 1 chat transcript(s) in `chats/`. The transcripts show the full back-and-forth between the user and the design assistant — they tell you **what the user actually wants** and **where they landed** after iterating. Don't skip them. The final HTML files are the output, but the chat is where the intent lives.
+| Area | Routes |
+|---|---|
+| Marketing | `/` `/pricing` `/connectors` `/developers` `/about` `/mission` `/contact` `/careers` |
+| Resources | `/data-sourcing` `/compliance` `/help` `/status` |
+| Legal | `/terms` `/privacy` `/acceptable-use` `/fcra-notice` |
+| App | `/dashboard` (search engine) `/agent` (AI data assistant) |
+| Auth | `/signin` `/signup` (with permitted-use attestation) `/auth/callback` |
+| API | `POST /api/agent` (AI assistant backend) |
 
-**Read `project/ReentryIQ Landing.html` in full.** The user had this file open when they triggered the handoff, so it's almost certainly the primary design they want built. Read it top to bottom — don't skim. Then **follow its imports**: open every file it pulls in (shared components, CSS, scripts) so you understand how the pieces fit together before you start implementing.
+## Local development
 
-**If anything is ambiguous, ask the user to confirm before you start implementing.** It's much cheaper to clarify scope up front than to build the wrong thing.
+```bash
+npm install
+cp .env.local.example .env.local   # fill in keys (optional — app runs in demo mode without)
+npm run dev
+```
 
-## About the design files
+Without env vars the entire app runs on a deterministic **demo dataset**
+(fictional names; only facility/county names are real public reference data)
+and labels itself "Sample data."
 
-The design medium is **HTML/CSS/JS** — these are prototypes, not production code. Your job is to **recreate them pixel-perfectly** in whatever technology makes sense for the target codebase (React, Vue, native, whatever fits). Match the visual output; don't copy the prototype's internal structure unless it happens to fit.
+## Environment variables (Vercel → Settings → Environment Variables)
 
-**Don't render these files in a browser or take screenshots unless the user asks you to.** Everything you need — dimensions, colors, layout rules — is spelled out in the source. Read the HTML and CSS directly; a screenshot won't tell you anything they don't.
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (client reads, RLS-guarded) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only; seeding/ingestion |
+| `ANTHROPIC_API_KEY` | AI data assistant (`/agent`, dashboard Ask AI) |
 
-## Bundle contents
+## Connecting real data
 
-- `README.md` — this file
-- `chats/` — conversation transcripts (read these!)
-- `project/` — the `DOC Data` project files (HTML prototypes, assets, components)
+1. **Create the schema** — run both files in the Supabase SQL editor, in order:
+   - `supabase/migrations/0001_releases.sql`
+   - `supabase/migrations/0002_releases_full_schema.sql`
+2. **Load rows** into `public.releases`. To verify the pipeline first, seed demo rows:
+   ```bash
+   NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node scripts/seed-demo-data.mjs
+   ```
+   Your real ADCRR importer should produce the same row shape (see the script).
+3. That's it. `lib/data-source.ts` and the AI agent automatically switch from demo
+   to live data whenever the table has rows; "Sample data" labels disappear.
+
+## Data & compliance posture
+
+Records are sourced from public ADCRR data, refreshed daily; release dates can change
+at the agency's discretion. ReentryIQ is **not a consumer reporting agency** — the data
+must never be used for employment, tenant, credit, or insurance screening or any other
+FCRA-covered purpose. Every account attests to permitted use at signup (`/signup` step 2).

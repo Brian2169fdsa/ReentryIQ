@@ -51,7 +51,7 @@ export function Hero() {
 
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 22 }}>
             <a
-              href="/dashboard"
+              href="/signup"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
